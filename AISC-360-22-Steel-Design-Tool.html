@@ -1,0 +1,1639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AISC 360-22 Steel Member Design Tool</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #1a1a2e;
+            --secondary: #16213e;
+            --accent: #0f3460;
+            --highlight: #e94560;
+            --text: #eaeaea;
+            --text-dim: #a0a0a0;
+            --success: #00d9ff;
+            --warning: #ffa726;
+            --danger: #ef5350;
+            --card-bg: rgba(22, 33, 62, 0.6);
+            --input-bg: rgba(15, 52, 96, 0.4);
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0a0a14 0%, #1a1a2e 50%, #16213e 100%);
+            color: var(--text);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(233, 69, 96, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 217, 255, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(233, 69, 96, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--success), var(--highlight));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .design-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 217, 255, 0.4);
+            box-shadow: 0 12px 40px rgba(0, 217, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--success);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--input-bg);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--success);
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        .input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--highlight), #c7365f);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .results-section {
+            margin-top: 2rem;
+        }
+
+        .result-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            margin-bottom: 1.5rem;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .result-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--success);
+        }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+
+        .status-pass {
+            background: rgba(0, 217, 255, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status-fail {
+            background: rgba(239, 83, 80, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .result-item {
+            background: var(--input-bg);
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 3px solid var(--success);
+        }
+
+        .result-label {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+
+        .result-value {
+            color: var(--text);
+            font-size: 1.2rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .unity-check {
+            background: var(--input-bg);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .unity-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+            position: relative;
+        }
+
+        .unity-fill {
+            height: 100%;
+            transition: width 0.5s ease, background 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .unity-pass {
+            background: linear-gradient(90deg, var(--success), #00a8cc);
+        }
+
+        .unity-fail {
+            background: linear-gradient(90deg, var(--danger), #c62828);
+        }
+
+        .calculation-details {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: var(--input-bg);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .calc-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .calc-title {
+            color: var(--success);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .calc-step {
+            color: var(--text-dim);
+            padding-left: 1rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .calc-value {
+            color: var(--text);
+        }
+
+        .code-ref {
+            color: var(--warning);
+            font-style: italic;
+        }
+
+        @media (max-width: 968px) {
+            .design-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+        }
+
+        .error-message {
+            background: rgba(239, 83, 80, 0.2);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        select option {
+            background: var(--secondary);
+            color: var(--text);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // AISC Section Database (commonly used sections)
+        const SECTION_DATABASE = {
+            'W-Shape': {
+                'W18x35': { d: 17.7, bf: 6.00, tf: 0.425, tw: 0.300, A: 10.3, Ix: 510, Iy: 15.3, Zx: 66.5, Zy: 7.50, Sx: 57.6, Sy: 5.12, rx: 7.04, ry: 1.22, J: 0.509, Cw: 1140, rts: 1.55 },
+                'W18x50': { d: 18.0, bf: 7.50, tf: 0.570, tw: 0.355, A: 14.7, Ix: 800, Iy: 40.1, Zx: 101, Zy: 14.3, Sx: 88.9, Sy: 10.7, rx: 7.38, ry: 1.65, J: 1.24, Cw: 3890, rts: 1.96 },
+                'W21x44': { d: 20.7, bf: 6.50, tf: 0.450, tw: 0.350, A: 13.0, Ix: 843, Iy: 20.7, Zx: 95.4, Zy: 9.76, Sx: 81.6, Sy: 6.37, rx: 8.06, ry: 1.26, J: 0.703, Cw: 1510, rts: 1.67 },
+                'W21x62': { d: 21.0, bf: 8.24, tf: 0.615, tw: 0.400, A: 18.3, Ix: 1330, Iy: 57.5, Zx: 144, Zy: 20.5, Sx: 127, Sy: 13.9, rx: 8.54, ry: 1.77, J: 1.76, Cw: 6300, rts: 2.15 },
+                'W24x55': { d: 23.6, bf: 7.01, tf: 0.505, tw: 0.395, A: 16.2, Ix: 1350, Iy: 29.1, Zx: 134, Zy: 12.6, Sx: 114, Sy: 8.30, rx: 9.11, ry: 1.34, J: 1.04, Cw: 2580, rts: 1.80 },
+                'W24x76': { d: 23.9, bf: 8.99, tf: 0.680, tw: 0.440, A: 22.4, Ix: 2100, Iy: 82.5, Zx: 200, Zy: 28.6, Sx: 176, Sy: 18.4, rx: 9.69, ry: 1.92, J: 2.68, Cw: 10000, rts: 2.33 },
+                'W27x84': { d: 26.7, bf: 9.96, tf: 0.640, tw: 0.460, A: 24.8, Ix: 2850, Iy: 106, Zx: 244, Zy: 32.2, Sx: 213, Sy: 21.2, rx: 10.7, ry: 2.07, J: 2.81, Cw: 13100, rts: 2.58 },
+                'W30x90': { d: 29.5, bf: 10.4, tf: 0.610, tw: 0.470, A: 26.4, Ix: 3610, Iy: 115, Zx: 283, Zy: 34.1, Sx: 245, Sy: 22.1, rx: 11.7, ry: 2.09, J: 2.63, Cw: 14500, rts: 2.69 },
+            },
+            'Channel': {
+                'C12x20.7': { d: 12.0, bf: 2.94, tf: 0.501, tw: 0.282, A: 6.09, Ix: 129, Iy: 3.88, Zx: 24.2, Zy: 1.73, Sx: 21.5, Sy: 1.32, rx: 4.61, ry: 0.799, x0: 0.698 },
+                'C15x33.9': { d: 15.0, bf: 3.40, tf: 0.650, tw: 0.400, A: 9.96, Ix: 315, Iy: 8.13, Zx: 47.9, Zy: 3.11, Sx: 42.0, Sy: 2.39, rx: 5.62, ry: 0.904, x0: 0.787 },
+            },
+            'Angle': {
+                'L4x4x1/2': { d: 4.0, b: 4.0, t: 0.5, A: 3.75, Ix: 5.56, Iy: 5.56, Zx: 3.71, Zy: 3.71, Sx: 2.78, Sy: 2.78, rx: 1.22, ry: 1.22, x_bar: 1.18, y_bar: 1.18, bf: 4.0, tf: 0.5, tw: 0.5, J: 0.5, Cw: 10, rts: 1.0 },
+                'L6x4x1/2': { d: 6.0, b: 4.0, t: 0.5, A: 4.75, Ix: 17.4, Iy: 6.27, Zx: 7.31, Zy: 3.96, Sx: 5.80, Sy: 3.14, rx: 1.91, ry: 1.15, x_bar: 1.99, y_bar: 1.00, bf: 4.0, tf: 0.5, tw: 0.5, J: 0.6, Cw: 15, rts: 1.2 },
+                'L8x8x1': { d: 8.0, b: 8.0, t: 1.0, A: 15.0, Ix: 98.0, Iy: 98.0, Zx: 20.0, Zy: 20.0, Sx: 15.5, Sy: 15.5, rx: 2.56, ry: 2.56, x_bar: 2.37, y_bar: 2.37, bf: 8.0, tf: 1.0, tw: 1.0, J: 2.0, Cw: 50, rts: 2.0 },
+            },
+            'HSS': {
+                'HSS4x4x1/4': { H: 4.0, B: 4.0, t: 0.233, A: 3.37, Ix: 10.3, Iy: 10.3, Zx: 6.39, Zy: 6.39, Sx: 5.15, Sy: 5.15, rx: 1.75, ry: 1.75, d: 4.0, bf: 4.0, tf: 0.233, tw: 0.233, J: 17.6, Cw: 0, rts: 1.41 },
+                'HSS4x4x3/8': { H: 4.0, B: 4.0, t: 0.349, A: 4.69, Ix: 13.5, Iy: 13.5, Zx: 8.67, Zy: 8.67, Sx: 6.75, Sy: 6.75, rx: 1.70, ry: 1.70, d: 4.0, bf: 4.0, tf: 0.349, tw: 0.349, J: 23.0, Cw: 0, rts: 1.41 },
+                'HSS4x4x1/2': { H: 4.0, B: 4.0, t: 0.465, A: 5.82, Ix: 15.7, Iy: 15.7, Zx: 10.4, Zy: 10.4, Sx: 7.86, Sy: 7.86, rx: 1.64, ry: 1.64, d: 4.0, bf: 4.0, tf: 0.465, tw: 0.465, J: 26.8, Cw: 0, rts: 1.41 },
+                'HSS4x3x1/4': { H: 4.0, B: 3.0, t: 0.233, A: 2.94, Ix: 7.80, Iy: 4.69, Zx: 5.08, Zy: 3.70, Sx: 3.90, Sy: 3.13, rx: 1.63, ry: 1.26, d: 4.0, bf: 3.0, tf: 0.233, tw: 0.233, J: 10.8, Cw: 19.7, rts: 1.12 },
+                'HSS4x3x3/8': { H: 4.0, B: 3.0, t: 0.349, A: 4.10, Ix: 10.3, Iy: 5.98, Zx: 6.92, Zy: 4.91, Sx: 5.14, Sy: 3.99, rx: 1.59, ry: 1.21, d: 4.0, bf: 3.0, tf: 0.349, tw: 0.349, J: 14.3, Cw: 26.7, rts: 1.12 },
+                'HSS4x3x1/2': { H: 4.0, B: 3.0, t: 0.465, A: 5.10, Ix: 12.0, Iy: 6.87, Zx: 8.32, Zy: 5.78, Sx: 6.01, Sy: 4.58, rx: 1.53, ry: 1.16, d: 4.0, bf: 3.0, tf: 0.465, tw: 0.465, J: 16.6, Cw: 31.6, rts: 1.12 },
+                'HSS5x4x1/4': { H: 5.0, B: 4.0, t: 0.233, A: 3.80, Ix: 15.1, Iy: 10.0, Zx: 7.82, Zy: 6.21, Sx: 6.06, Sy: 5.00, rx: 1.99, ry: 1.62, d: 5.0, bf: 4.0, tf: 0.233, tw: 0.233, J: 21.6, Cw: 41.5, rts: 1.52 },
+                'HSS5x4x5/16': { H: 5.0, B: 4.0, t: 0.291, A: 4.69, Ix: 18.3, Iy: 12.1, Zx: 9.62, Zy: 7.57, Sx: 7.30, Sy: 6.04, rx: 1.98, ry: 1.61, d: 5.0, bf: 4.0, tf: 0.291, tw: 0.291, J: 26.5, Cw: 50.9, rts: 1.52 },
+                'HSS5x4x3/8': { H: 5.0, B: 4.0, t: 0.349, A: 5.55, Ix: 21.3, Iy: 14.0, Zx: 11.3, Zy: 8.86, Sx: 8.51, Sy: 7.03, rx: 1.96, ry: 1.59, d: 5.0, bf: 4.0, tf: 0.349, tw: 0.349, J: 31.0, Cw: 59.7, rts: 1.52 },
+                'HSS5x4x1/2': { H: 5.0, B: 4.0, t: 0.465, A: 6.95, Ix: 25.2, Iy: 16.3, Zx: 13.6, Zy: 10.6, Sx: 10.1, Sy: 8.16, rx: 1.90, ry: 1.53, d: 5.0, bf: 4.0, tf: 0.465, tw: 0.465, J: 36.9, Cw: 72.2, rts: 1.52 },
+                'HSS6x4x1/4': { H: 6.0, B: 4.0, t: 0.233, A: 4.23, Ix: 22.1, Iy: 11.2, Zx: 9.58, Zy: 6.90, Sx: 7.37, Sy: 5.59, rx: 2.29, ry: 1.63, d: 6.0, bf: 4.0, tf: 0.233, tw: 0.233, J: 29.3, Cw: 68.4, rts: 1.62 },
+                'HSS6x4x5/16': { H: 6.0, B: 4.0, t: 0.291, A: 5.23, Ix: 27.0, Iy: 13.6, Zx: 11.8, Zy: 8.43, Sx: 9.00, Sy: 6.81, rx: 2.27, ry: 1.61, d: 6.0, bf: 4.0, tf: 0.291, tw: 0.291, J: 36.0, Cw: 84.1, rts: 1.62 },
+                'HSS6x4x3/8': { H: 6.0, B: 4.0, t: 0.349, A: 6.20, Ix: 31.5, Iy: 15.8, Zx: 13.9, Zy: 9.86, Sx: 10.5, Sy: 7.92, rx: 2.25, ry: 1.60, d: 6.0, bf: 4.0, tf: 0.349, tw: 0.349, J: 42.2, Cw: 98.9, rts: 1.62 },
+                'HSS6x4x1/2': { H: 6.0, B: 4.0, t: 0.465, A: 7.78, Ix: 37.6, Iy: 18.5, Zx: 16.8, Zy: 11.8, Sx: 12.5, Sy: 9.24, rx: 2.20, ry: 1.54, d: 6.0, bf: 4.0, tf: 0.465, tw: 0.465, J: 50.7, Cw: 120, rts: 1.62 },
+                'HSS6x4x5/8': { H: 6.0, B: 4.0, t: 0.581, A: 9.43, Ix: 43.3, Iy: 20.7, Zx: 20.0, Zy: 13.7, Sx: 14.4, Sy: 10.3, rx: 2.14, ry: 1.48, d: 6.0, bf: 4.0, tf: 0.581, tw: 0.581, J: 58.2, Cw: 140, rts: 1.62 },
+                'HSS7x4x1/4': { H: 7.0, B: 4.0, t: 0.233, A: 4.66, Ix: 30.5, Iy: 12.4, Zx: 11.4, Zy: 7.59, Sx: 8.71, Sy: 6.18, rx: 2.56, ry: 1.63, d: 7.0, bf: 4.0, tf: 0.233, tw: 0.233, J: 38.2, Cw: 102, rts: 1.71 },
+                'HSS7x4x5/16': { H: 7.0, B: 4.0, t: 0.291, A: 5.76, Ix: 37.3, Iy: 15.1, Zx: 14.0, Zy: 9.30, Sx: 10.7, Sy: 7.56, rx: 2.54, ry: 1.62, d: 7.0, bf: 4.0, tf: 0.291, tw: 0.291, J: 47.1, Cw: 126, rts: 1.71 },
+                'HSS7x4x3/8': { H: 7.0, B: 4.0, t: 0.349, A: 6.84, Ix: 43.7, Iy: 17.6, Zx: 16.5, Zy: 10.9, Sx: 12.5, Sy: 8.81, rx: 2.53, ry: 1.60, d: 7.0, bf: 4.0, tf: 0.349, tw: 0.349, J: 55.3, Cw: 148, rts: 1.71 },
+                'HSS7x4x1/2': { H: 7.0, B: 4.0, t: 0.465, A: 8.61, Ix: 52.5, Iy: 20.6, Zx: 20.1, Zy: 13.1, Sx: 15.0, Sy: 10.3, rx: 2.47, ry: 1.55, d: 7.0, bf: 4.0, tf: 0.465, tw: 0.465, J: 67.0, Cw: 180, rts: 1.71 },
+                'HSS7x4x5/8': { H: 7.0, B: 4.0, t: 0.581, A: 10.5, Ix: 60.9, Iy: 23.3, Zx: 24.1, Zy: 15.3, Sx: 17.4, Sy: 11.7, rx: 2.41, ry: 1.49, d: 7.0, bf: 4.0, tf: 0.581, tw: 0.581, J: 77.8, Cw: 211, rts: 1.71 },
+                'HSS8x4x1/4': { H: 8.0, B: 4.0, t: 0.233, A: 5.09, Ix: 40.5, Iy: 13.6, Zx: 13.3, Zy: 8.28, Sx: 10.1, Sy: 6.77, rx: 2.82, ry: 1.63, d: 8.0, bf: 4.0, tf: 0.233, tw: 0.233, J: 48.4, Cw: 143, rts: 1.80 },
+                'HSS8x4x5/16': { H: 8.0, B: 4.0, t: 0.291, A: 6.30, Ix: 49.7, Iy: 16.7, Zx: 16.4, Zy: 10.2, Sx: 12.4, Sy: 8.33, rx: 2.81, ry: 1.63, d: 8.0, bf: 4.0, tf: 0.291, tw: 0.291, J: 59.7, Cw: 177, rts: 1.80 },
+                'HSS8x4x3/8': { H: 8.0, B: 4.0, t: 0.349, A: 7.48, Ix: 58.2, Iy: 19.5, Zx: 19.3, Zy: 11.9, Sx: 14.6, Sy: 9.73, rx: 2.79, ry: 1.61, d: 8.0, bf: 4.0, tf: 0.349, tw: 0.349, J: 70.2, Cw: 208, rts: 1.80 },
+                'HSS8x4x1/2': { H: 8.0, B: 4.0, t: 0.465, A: 9.44, Ix: 70.2, Iy: 22.9, Zx: 23.5, Zy: 14.3, Sx: 17.6, Sy: 11.4, rx: 2.73, ry: 1.56, d: 8.0, bf: 4.0, tf: 0.465, tw: 0.465, J: 85.5, Cw: 253, rts: 1.80 },
+                'HSS8x4x5/8': { H: 8.0, B: 4.0, t: 0.581, A: 11.5, Ix: 81.9, Iy: 25.9, Zx: 28.2, Zy: 16.8, Sx: 20.5, Sy: 13.0, rx: 2.67, ry: 1.50, d: 8.0, bf: 4.0, tf: 0.581, tw: 0.581, J: 100, Cw: 297, rts: 1.80 },
+                'HSS8x8x1/2': { H: 8.0, B: 8.0, t: 0.465, A: 13.5, Ix: 150, Iy: 150, Zx: 43.8, Zy: 43.8, Sx: 37.5, Sy: 37.5, rx: 3.34, ry: 3.34, d: 8.0, bf: 8.0, tf: 0.465, tw: 0.465, J: 280, Cw: 1000, rts: 2.8 },
+                'HSS10x10x5/8': { H: 10.0, B: 10.0, t: 0.581, A: 21.1, Ix: 303, Iy: 303, Zx: 71.7, Zy: 71.7, Sx: 60.6, Sy: 60.6, rx: 3.79, ry: 3.79, d: 10.0, bf: 10.0, tf: 0.581, tw: 0.581, J: 550, Cw: 2000, rts: 3.5 },
+                'HSS12x8x1/2': { H: 12.0, B: 8.0, t: 0.465, A: 16.8, Ix: 374, Iy: 213, Zx: 73.0, Zy: 49.0, Sx: 62.3, Sy: 53.2, rx: 4.72, ry: 3.56, d: 12.0, bf: 8.0, tf: 0.465, tw: 0.465, J: 550, Cw: 2000, rts: 3.5 },
+            },
+            'WT': {
+                'WT9x17.5': { d: 8.85, bf: 6.00, tf: 0.425, tw: 0.300, A: 5.15, Ix: 22.5, Iy: 15.3, Zx: 7.13, Zy: 7.50, Sx: 5.09, Sy: 5.12, rx: 2.09, ry: 1.22, y_bar: 2.52, J: 0.509, Cw: 1140, rts: 1.55 },
+                'WT12x31': { d: 11.4, bf: 8.24, tf: 0.615, tw: 0.400, A: 9.13, Ix: 67.8, Iy: 57.5, Zx: 17.0, Zy: 20.5, Sx: 11.9, Sy: 13.9, rx: 2.73, ry: 1.77, y_bar: 3.07, J: 1.76, Cw: 6300, rts: 2.15 },
+            }
+        };
+
+        // Built-up section configurations
+        const BUILTUP_TYPES = {
+            'Double Angle': ['Back-to-Back', 'Long Legs Back-to-Back'],
+            'Box Section': ['Welded Plate', 'Built-up from Channels'],
+            'I-Section': ['Welded Plate', 'Cover Plated W-Shape'],
+        };
+
+        function SteelDesignApp() {
+            // State management
+            const [memberType, setMemberType] = useState('beam');
+            const [sectionType, setSectionType] = useState('W-Shape');
+            const [selectedSection, setSelectedSection] = useState('');
+            const [isBuiltUp, setIsBuiltUp] = useState(false);
+            const [builtUpType, setBuiltUpType] = useState('');
+            const [builtUpConfig, setBuiltUpConfig] = useState('');
+            const [useCustomSection, setUseCustomSection] = useState(false);
+            const [customProps, setCustomProps] = useState({
+                d: 24, bf: 12, tf: 0.75, tw: 0.5, A: 40,
+                Ix: 3000, Iy: 800, Zx: 300, Zy: 150,
+                rx: 8.66, ry: 4.47, J: 3.5, Cw: 15000, rts: 3.0, Sx: 250, Sy: 130
+            });
+            
+            // Loading inputs
+            const [loads, setLoads] = useState({
+                Pu: 0, // Axial force (compression +, tension -)
+                Mux: 0, // Major axis moment
+                Muy: 0, // Minor axis moment
+                Vux: 0, // Shear in x
+                Vuy: 0, // Shear in y
+                wDL: 0, // Dead load (k/ft)
+                wLL: 0, // Live load (k/ft)
+            });
+            
+            // Geometric inputs
+            const [geometry, setGeometry] = useState({
+                L: 20, // Unbraced length (ft)
+                Lbx: 20, // Lateral bracing for major axis (ft)
+                Lby: 20, // Lateral bracing for minor axis (ft)
+                Lb: 20, // Lateral-torsional buckling length (ft)
+                Kx: 1.0, // Effective length factor x
+                Ky: 1.0, // Effective length factor y
+                Cb: 1.0, // Lateral-torsional buckling modifier
+            });
+            
+            // Material properties
+            const [material, setMaterial] = useState({
+                Fy: 50, // Yield stress (ksi)
+                Fu: 65, // Ultimate stress (ksi)
+                E: 29000, // Modulus of elasticity (ksi)
+            });
+            
+            // Results
+            const [results, setResults] = useState(null);
+            const [showDetails, setShowDetails] = useState(false);
+
+            // Available sections based on section type
+            const availableSections = SECTION_DATABASE[sectionType] || {};
+
+            // Design calculations
+            const performDesign = () => {
+                console.log('performDesign called');
+                console.log('selectedSection:', selectedSection);
+                console.log('isBuiltUp:', isBuiltUp);
+                console.log('useCustomSection:', useCustomSection);
+
+                if (!selectedSection && !isBuiltUp && !useCustomSection) {
+                    alert('Please select a section, configure a built-up member, or enter custom section properties');
+                    return;
+                }
+
+                let sectionProps = {};
+                
+                try {
+                    if (useCustomSection) {
+                        console.log('Using custom section');
+                        sectionProps = { ...customProps };
+                    } else if (isBuiltUp) {
+                        console.log('Using built-up section');
+                        sectionProps = calculateBuiltUpSection();
+                    } else {
+                        console.log('Using standard section');
+                        sectionProps = availableSections[selectedSection];
+                    }
+
+                    console.log('Section props:', sectionProps);
+
+                    if (!sectionProps || !sectionProps.A) {
+                        alert('Section properties not found or incomplete');
+                        return;
+                    }
+
+                    const designResults = calculateDesign(sectionProps);
+                    console.log('Design results:', designResults);
+                    setResults(designResults);
+                } catch (error) {
+                    console.error('Error in performDesign:', error);
+                    alert('Error performing design: ' + error.message);
+                }
+            };
+
+            const calculateBuiltUpSection = () => {
+                // Simplified built-up section - user would input dimensions
+                // This is a placeholder that returns dummy properties
+                return {
+                    d: 24, bf: 12, tf: 1.0, tw: 0.5, A: 50, 
+                    Ix: 5000, Iy: 1000, Zx: 500, Zy: 150,
+                    rx: 10, ry: 4.5, J: 5, Cw: 20000, rts: 3.0
+                };
+            };
+
+            const calculateDesign = (props) => {
+                const phi_t = 0.90; // Tension resistance factor
+                const phi_c = 0.90; // Compression resistance factor
+                const phi_b = 0.90; // Flexure resistance factor
+                const phi_v = 1.00; // Shear resistance factor
+
+                const E = Number(material.E) || 29000;
+                const Fy = Number(material.Fy) || 50;
+                const A = Number(props.A) || 0;
+                const d = Number(props.d) || 0;
+                const tw = Number(props.tw) || 0.5;
+                const bf = Number(props.bf) || 0;
+                const tf = Number(props.tf) || 0;
+                const Ix = Number(props.Ix) || 0;
+                const Iy = Number(props.Iy) || 0;
+                const Zx = Number(props.Zx) || 0;
+                const Zy = Number(props.Zy) || 0;
+                const rx = Number(props.rx) || 0;
+                const ry = Number(props.ry) || 0;
+                const J = Number(props.J) || 1.0;
+                const Cw = Number(props.Cw) || 1000;
+                const rts = Number(props.rts) || 2.0;
+                const Sx = Number(props.Sx) || Zx * 0.9; // Approximate if not provided
+                const ho = d - tf;
+
+                // Validate critical properties
+                if (A === 0 || d === 0 || Ix === 0 || Zx === 0) {
+                    throw new Error('Critical section properties are missing or zero');
+                }
+
+                let calculations = {
+                    sectionProps: props,
+                    steps: [],
+                };
+
+                // TENSION DESIGN (AISC 360-22 Chapter D)
+                calculations.steps.push({
+                    title: 'Tension Capacity (AISC 360-22 Chapter D)',
+                    items: [
+                        `Gross Area: Ag = ${A.toFixed(2)} in²`,
+                        `Yield Stress: Fy = ${Fy} ksi`,
+                        `Ultimate Stress: Fu = ${material.Fu} ksi`,
+                    ]
+                });
+
+                // Yielding on gross section (D2-1)
+                const Pn_yield = Fy * A;
+                const phiPn_yield = phi_t * Pn_yield;
+                
+                // Rupture on net section (D2-2) - assuming Ae = 0.85*Ag
+                const Ae = 0.85 * A;
+                const Pn_rupture = material.Fu * Ae;
+                const phiPn_rupture = phi_t * Pn_rupture;
+                
+                const phiPn_tension = Math.min(phiPn_yield, phiPn_rupture);
+
+                const DCR_tension = Math.abs(loads.Pu < 0 ? loads.Pu / phiPn_tension : 0);
+                
+                calculations.steps.push({
+                    title: 'Tension Strength',
+                    items: [
+                        `Yielding: Pn = Fy × Ag = ${Fy} × ${A.toFixed(2)} = ${Pn_yield.toFixed(1)} kips (AISC D2-1)`,
+                        `φPn (yielding) = ${phi_t} × ${Pn_yield.toFixed(1)} = ${phiPn_yield.toFixed(1)} kips`,
+                        `Rupture: Pn = Fu × Ae = ${material.Fu} × ${Ae.toFixed(2)} = ${Pn_rupture.toFixed(1)} kips (AISC D2-2)`,
+                        `φPn (rupture) = ${phi_t} × ${Pn_rupture.toFixed(1)} = ${phiPn_rupture.toFixed(1)} kips`,
+                        `Controlling φPn = ${phiPn_tension.toFixed(1)} kips`,
+                        loads.Pu < 0 ? `DCR = |Pu| / φPn = ${Math.abs(loads.Pu).toFixed(1)} / ${phiPn_tension.toFixed(1)} = ${DCR_tension.toFixed(3)} ${DCR_tension <= 1.0 ? '✓ O.K.' : '✗ N.G.'}` : '',
+                    ].filter(item => item !== '')
+                });
+
+                // COMPRESSION DESIGN (AISC 360-22 Chapter E)
+                const Lc_x = geometry.Lbx * 12; // Convert to inches
+                const Lc_y = geometry.Lby * 12;
+                const KL_rx = (geometry.Kx * Lc_x) / rx;
+                const KL_ry = (geometry.Ky * Lc_y) / ry;
+                const KL_r = Math.max(KL_rx, KL_ry);
+
+                calculations.steps.push({
+                    title: 'Compression Slenderness (AISC 360-22 Chapter E)',
+                    items: [
+                        `Lc,x = ${geometry.Lbx} ft = ${Lc_x.toFixed(1)} in`,
+                        `Lc,y = ${geometry.Lby} ft = ${Lc_y.toFixed(1)} in`,
+                        `KL/rx = ${geometry.Kx} × ${Lc_x.toFixed(1)} / ${rx.toFixed(2)} = ${KL_rx.toFixed(1)}`,
+                        `KL/ry = ${geometry.Ky} × ${Lc_y.toFixed(1)} / ${ry.toFixed(2)} = ${KL_ry.toFixed(1)}`,
+                        `Governing KL/r = ${KL_r.toFixed(1)}`,
+                    ]
+                });
+
+                // Elastic critical buckling stress (E3-4)
+                const Fe = (Math.PI ** 2 * E) / (KL_r ** 2);
+                const lambda_c = Math.sqrt(Fy / Fe);
+
+                let Fcr;
+                if (lambda_c <= 2.25) {
+                    Fcr = Math.pow(0.658, lambda_c ** 2) * Fy; // (E3-2)
+                } else {
+                    Fcr = 0.877 * Fe; // (E3-3)
+                }
+
+                const Pn_compression = Fcr * A;
+                const phiPn_compression = phi_c * Pn_compression;
+                const DCR_compression = loads.Pu > 0 ? loads.Pu / phiPn_compression : 0;
+
+                calculations.steps.push({
+                    title: 'Compression Strength',
+                    items: [
+                        `Fe = π²E / (KL/r)² = π² × ${E} / ${KL_r.toFixed(1)}² = ${Fe.toFixed(1)} ksi (AISC E3-4)`,
+                        `λc = √(Fy/Fe) = √(${Fy}/${Fe.toFixed(1)}) = ${lambda_c.toFixed(3)}`,
+                        lambda_c <= 2.25 ? 
+                            `Fcr = [0.658^(λc²)] × Fy = ${Fcr.toFixed(2)} ksi (AISC E3-2)` :
+                            `Fcr = 0.877 × Fe = ${Fcr.toFixed(2)} ksi (AISC E3-3)`,
+                        `Pn = Fcr × Ag = ${Fcr.toFixed(2)} × ${A.toFixed(2)} = ${Pn_compression.toFixed(1)} kips`,
+                        `φcPn = ${phi_c} × ${Pn_compression.toFixed(1)} = ${phiPn_compression.toFixed(1)} kips`,
+                        loads.Pu > 0 ? `DCR = Pu / φPn = ${loads.Pu.toFixed(1)} / ${phiPn_compression.toFixed(1)} = ${DCR_compression.toFixed(3)} ${DCR_compression <= 1.0 ? '✓ O.K.' : '✗ N.G.'}` : '',
+                    ].filter(item => item !== '')
+                });
+
+                // FLEXURAL DESIGN (AISC 360-22 Chapter F)
+                const Lb_in = geometry.Lb * 12;
+                const Mp = Fy * Zx;
+                
+                // Limiting laterally unbraced lengths (F2)
+                const Lp = 1.76 * ry * Math.sqrt(E / Fy); // (F2-5)
+                
+                const c = 1.0; // For doubly symmetric I-shapes
+                const Lr = 1.95 * rts * (E / (0.7 * Fy)) * 
+                           Math.sqrt((J * c / Sx) + 
+                           Math.sqrt((J * c / Sx) ** 2 + 6.76 * (0.7 * Fy / E) ** 2)); // (F2-6)
+
+                let Mn_ltb;
+                if (Lb_in <= Lp) {
+                    Mn_ltb = Mp; // (F2-1)
+                } else if (Lb_in <= Lr) {
+                    const Cb = geometry.Cb;
+                    Mn_ltb = Cb * (Mp - (Mp - 0.7 * Fy * Sx) * 
+                             ((Lb_in - Lp) / (Lr - Lp))); // (F2-2)
+                    Mn_ltb = Math.min(Mn_ltb, Mp);
+                } else {
+                    const Cb = geometry.Cb;
+                    const Fcr_ltb = (Cb * Math.PI ** 2 * E) / ((Lb_in / rts) ** 2) *
+                                   Math.sqrt(1 + 0.078 * (J * c / Sx) * 
+                                   (Lb_in / rts) ** 2); // (F2-4)
+                    Mn_ltb = Fcr_ltb * Sx;
+                    Mn_ltb = Math.min(Mn_ltb, Mp);
+                }
+
+                const phiMn_x = phi_b * Mn_ltb / 12; // Convert to kip-ft
+                const DCR_flexure_x = loads.Mux / phiMn_x;
+
+                calculations.steps.push({
+                    title: 'Flexural Strength - Major Axis (AISC 360-22 Chapter F)',
+                    items: [
+                        `Plastic Moment: Mp = Fy × Zx = ${Fy} × ${Zx.toFixed(2)} = ${Mp.toFixed(1)} kip-in`,
+                        `Lb = ${geometry.Lb} ft = ${Lb_in.toFixed(1)} in`,
+                        `Lp = 1.76 × ry × √(E/Fy) = ${Lp.toFixed(1)} in (AISC F2-5)`,
+                        `Lr = ${Lr.toFixed(1)} in (AISC F2-6)`,
+                        Lb_in <= Lp ? 
+                            `Lb ≤ Lp: Mn = Mp = ${Mn_ltb.toFixed(1)} kip-in (AISC F2-1)` :
+                            Lb_in <= Lr ?
+                            `Lp < Lb ≤ Lr: Mn = ${Mn_ltb.toFixed(1)} kip-in (AISC F2-2)` :
+                            `Lb > Lr: Mn = ${Mn_ltb.toFixed(1)} kip-in (AISC F2-3)`,
+                        `φbMnx = ${phi_b} × ${Mn_ltb.toFixed(1)} / 12 = ${phiMn_x.toFixed(1)} kip-ft`,
+                        `DCR = Mux / φMnx = ${loads.Mux.toFixed(1)} / ${phiMn_x.toFixed(1)} = ${DCR_flexure_x.toFixed(3)} ${DCR_flexure_x <= 1.0 ? '✓ O.K.' : '✗ N.G.'}`,
+                    ]
+                });
+
+                // Minor axis flexure (no LTB)
+                const Mn_y = Mp * (Zy / Zx);
+                const phiMn_y = phi_b * Mn_y / 12;
+                const DCR_flexure_y = loads.Muy / phiMn_y;
+
+                calculations.steps.push({
+                    title: 'Flexural Strength - Minor Axis',
+                    items: [
+                        `Mp,y = Fy × Zy = ${Fy} × ${Zy.toFixed(2)} = ${Mn_y.toFixed(1)} kip-in`,
+                        `φbMny = ${phi_b} × ${Mn_y.toFixed(1)} / 12 = ${phiMn_y.toFixed(1)} kip-ft`,
+                        `DCR = Muy / φMny = ${loads.Muy.toFixed(1)} / ${phiMn_y.toFixed(1)} = ${DCR_flexure_y.toFixed(3)} ${DCR_flexure_y <= 1.0 ? '✓ O.K.' : '✗ N.G.'}`,
+                    ]
+                });
+
+                // SHEAR DESIGN (AISC 360-22 Chapter G)
+                const Aw = d * tw;
+                const h_tw = (d - 2 * tf) / tw;
+                const kv = 5.0; // For unstiffened webs
+                
+                const Cv2 = 1.10 * Math.sqrt(kv * E / Fy);
+                const Cv3 = 1.51 * kv * E / (Fy * (h_tw ** 2));
+
+                let Cv;
+                if (h_tw <= Cv2) {
+                    Cv = 1.0;
+                } else if (h_tw <= Cv3) {
+                    Cv = Cv2 / h_tw;
+                } else {
+                    Cv = Cv3;
+                }
+
+                const Vn = 0.6 * Fy * Aw * Cv;
+                const phiVn = phi_v * Vn;
+                const DCR_shear = loads.Vux / phiVn;
+
+                calculations.steps.push({
+                    title: 'Shear Strength (AISC 360-22 Chapter G)',
+                    items: [
+                        `Web Area: Aw = d × tw = ${d.toFixed(2)} × ${tw.toFixed(3)} = ${Aw.toFixed(2)} in²`,
+                        `h/tw = ${h_tw.toFixed(1)}`,
+                        `Web shear coefficient: Cv = ${Cv.toFixed(3)}`,
+                        `Vn = 0.6 × Fy × Aw × Cv = 0.6 × ${Fy} × ${Aw.toFixed(2)} × ${Cv.toFixed(3)} = ${Vn.toFixed(1)} kips`,
+                        `φvVn = ${phi_v} × ${Vn.toFixed(1)} = ${phiVn.toFixed(1)} kips`,
+                        `DCR = Vux / φVn = ${loads.Vux.toFixed(1)} / ${phiVn.toFixed(1)} = ${DCR_shear.toFixed(3)} ${DCR_shear <= 1.0 ? '✓ O.K.' : '✗ N.G.'}`,
+                    ]
+                });
+
+                // DEFLECTION (Live Load)
+                const span_ft = geometry.L;
+                const span_in = span_ft * 12;
+                const wLL_kip_in = loads.wLL / 12; // Convert k/ft to k/in
+                
+                // Simply supported beam with uniform load
+                const delta_LL = (5 * wLL_kip_in * Math.pow(span_in, 4)) / (384 * E * Ix);
+                const delta_limit = span_in / 360; // L/360 for live load
+                const delta_ratio = delta_LL > 0 ? span_in / delta_LL : 999999;
+                const deflection_pass = delta_LL <= delta_limit;
+
+                calculations.steps.push({
+                    title: 'Live Load Deflection',
+                    items: [
+                        `Span: L = ${span_ft} ft = ${span_in} in`,
+                        `Live Load: w = ${loads.wLL.toFixed(2)} k/ft`,
+                        `Ix = ${Ix.toFixed(1)} in⁴`,
+                        `Δ_LL = 5wL⁴/(384EI) = ${delta_LL.toFixed(3)} in`,
+                        `Δ_limit = L/360 = ${span_in}/360 = ${delta_limit.toFixed(3)} in`,
+                        `Actual: L/${delta_ratio.toFixed(0)}`,
+                        `Deflection Check: ${deflection_pass ? '✓ O.K.' : '✗ N.G. - Exceeds L/360 limit'}`,
+                    ]
+                });
+
+                // INTERACTION CHECKS (AISC 360-22 Chapter H)
+                const Pr = Math.abs(loads.Pu);
+                const Mrx = Math.abs(loads.Mux);
+                const Mry = Math.abs(loads.Muy);
+                
+                const Pc = loads.Pu > 0 ? phiPn_compression : phiPn_tension;
+                
+                let interaction;
+                if (Pr / Pc >= 0.2) {
+                    // H1-1a
+                    interaction = (Pr / Pc) + (8/9) * ((Mrx / phiMn_x) + (Mry / phiMn_y));
+                } else {
+                    // H1-1b
+                    interaction = (Pr / (2 * Pc)) + ((Mrx / phiMn_x) + (Mry / phiMn_y));
+                }
+
+                calculations.steps.push({
+                    title: 'Interaction Check (AISC 360-22 Chapter H)',
+                    items: [
+                        `Pr/Pc = ${Pr.toFixed(1)}/${Pc.toFixed(1)} = ${(Pr/Pc).toFixed(3)}`,
+                        `Mrx/Mcx = ${Mrx.toFixed(1)}/${phiMn_x.toFixed(1)} = ${(Mrx/phiMn_x).toFixed(3)}`,
+                        `Mry/Mcy = ${Mry.toFixed(1)}/${phiMn_y.toFixed(1)} = ${(Mry/phiMn_y).toFixed(3)}`,
+                        (Pr / Pc) >= 0.2 ? 
+                            `Equation H1-1a: DCR = ${interaction.toFixed(3)} ${interaction <= 1.0 ? '✓ O.K.' : '✗ N.G.'}` :
+                            `Equation H1-1b: DCR = ${interaction.toFixed(3)} ${interaction <= 1.0 ? '✓ O.K.' : '✗ N.G.'}`,
+                    ]
+                });
+
+                // Check if all strength requirements pass
+                const strength_pass = interaction <= 1.0 && 
+                                     DCR_compression <= 1.0 && 
+                                     DCR_tension <= 1.0 && 
+                                     DCR_flexure_x <= 1.0 && 
+                                     DCR_flexure_y <= 1.0 && 
+                                     DCR_shear <= 1.0;
+
+                return {
+                    capacities: {
+                        phiPn_tension,
+                        phiPn_compression,
+                        phiMn_x,
+                        phiMn_y,
+                        phiVn,
+                    },
+                    demands: {
+                        Pu: loads.Pu,
+                        Mux: loads.Mux,
+                        Muy: loads.Muy,
+                        Vux: loads.Vux,
+                    },
+                    ratios: {
+                        tension: DCR_tension,
+                        compression: DCR_compression,
+                        flexure_x: DCR_flexure_x,
+                        flexure_y: DCR_flexure_y,
+                        shear: DCR_shear,
+                        interaction: interaction,
+                    },
+                    deflection: {
+                        delta_LL,
+                        delta_limit,
+                        ratio: delta_ratio,
+                        pass: deflection_pass,
+                    },
+                    calculations,
+                    strength_pass: strength_pass,
+                    deflection_pass: deflection_pass,
+                    pass: strength_pass && deflection_pass,
+                };
+            };
+
+            const generatePDF = () => {
+                if (!results) {
+                    alert('Please run design calculations first');
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                let yPos = 20;
+                const lineHeight = 7;
+                const pageHeight = 280;
+
+                // Title
+                doc.setFontSize(18);
+                doc.setFont(undefined, 'bold');
+                doc.text('STEEL MEMBER DESIGN CALCULATION', 105, yPos, { align: 'center' });
+                yPos += 10;
+                
+                doc.setFontSize(12);
+                doc.text('AISC 360-22', 105, yPos, { align: 'center' });
+                yPos += 15;
+
+                // Project Info
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPos);
+                yPos += lineHeight;
+                doc.text(`Section: ${isBuiltUp ? `Built-up ${builtUpType}` : selectedSection}`, 20, yPos);
+                yPos += lineHeight;
+                doc.text(`Member Type: ${memberType.toUpperCase()}`, 20, yPos);
+                yPos += lineHeight * 2;
+
+                // Section Properties
+                doc.setFont(undefined, 'bold');
+                doc.text('SECTION PROPERTIES', 20, yPos);
+                yPos += lineHeight;
+                doc.setFont(undefined, 'normal');
+                
+                const props = results.calculations.sectionProps;
+                const propEntries = [
+                    ['Gross Area, Ag', props.A.toFixed(2), 'in²'],
+                    ['Depth, d', props.d.toFixed(2), 'in'],
+                    ['Flange Width, bf', props.bf.toFixed(2), 'in'],
+                    ['Flange Thickness, tf', props.tf.toFixed(3), 'in'],
+                    ['Web Thickness, tw', (props.tw || 0).toFixed(3), 'in'],
+                    ['Moment of Inertia, Ix', props.Ix.toFixed(1), 'in⁴'],
+                    ['Moment of Inertia, Iy', props.Iy.toFixed(1), 'in⁴'],
+                    ['Plastic Modulus, Zx', props.Zx.toFixed(2), 'in³'],
+                    ['Plastic Modulus, Zy', props.Zy.toFixed(2), 'in³'],
+                ];
+
+                propEntries.forEach(([label, value, unit]) => {
+                    doc.text(`${label}: ${value} ${unit}`, 25, yPos);
+                    yPos += lineHeight;
+                });
+                yPos += lineHeight;
+
+                // Material Properties
+                doc.setFont(undefined, 'bold');
+                doc.text('MATERIAL PROPERTIES', 20, yPos);
+                yPos += lineHeight;
+                doc.setFont(undefined, 'normal');
+                doc.text(`Yield Stress, Fy: ${material.Fy} ksi`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Ultimate Stress, Fu: ${material.Fu} ksi`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Modulus of Elasticity, E: ${material.E.toLocaleString()} ksi`, 25, yPos);
+                yPos += lineHeight * 2;
+
+                // Loading
+                doc.setFont(undefined, 'bold');
+                doc.text('APPLIED LOADS', 20, yPos);
+                yPos += lineHeight;
+                doc.setFont(undefined, 'normal');
+                doc.text(`Axial Force, Pu: ${loads.Pu} kips`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Moment (Major), Mux: ${loads.Mux} kip-ft`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Moment (Minor), Muy: ${loads.Muy} kip-ft`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Shear, Vux: ${loads.Vux} kips`, 25, yPos);
+                yPos += lineHeight;
+                if (loads.wLL > 0) {
+                    doc.text(`Live Load: ${loads.wLL} k/ft`, 25, yPos);
+                    yPos += lineHeight;
+                }
+                yPos += lineHeight;
+
+                // Add new page for calculations
+                doc.addPage();
+                yPos = 20;
+
+                // Detailed Calculations
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('DESIGN CALCULATIONS', 20, yPos);
+                yPos += lineHeight * 1.5;
+
+                results.calculations.steps.forEach(section => {
+                    if (yPos > pageHeight - 40) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+
+                    doc.setFontSize(11);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(section.title, 20, yPos);
+                    yPos += lineHeight;
+
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'normal');
+                    section.items.forEach(item => {
+                        if (yPos > pageHeight - 20) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        
+                        // Handle long lines
+                        const lines = doc.splitTextToSize(item, 170);
+                        lines.forEach(line => {
+                            doc.text(line, 25, yPos);
+                            yPos += lineHeight * 0.9;
+                        });
+                    });
+                    yPos += lineHeight * 1.2;
+                });
+
+                // Add new page for summary
+                doc.addPage();
+                yPos = 20;
+
+                // Summary
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('DESIGN SUMMARY', 20, yPos);
+                yPos += lineHeight * 2;
+
+                doc.setFontSize(11);
+                doc.text('CAPACITIES:', 20, yPos);
+                yPos += lineHeight * 1.2;
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Tension: φPn = ${results.capacities.phiPn_tension.toFixed(1)} kips`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Compression: φPn = ${results.capacities.phiPn_compression.toFixed(1)} kips`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Flexure (Major): φMn = ${results.capacities.phiMn_x.toFixed(1)} kip-ft`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Flexure (Minor): φMn = ${results.capacities.phiMn_y.toFixed(1)} kip-ft`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Shear: φVn = ${results.capacities.phiVn.toFixed(1)} kips`, 25, yPos);
+                yPos += lineHeight * 2;
+
+                // Unity Checks
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.text('UNITY CHECKS (DCR = Demand/Capacity):', 20, yPos);
+                yPos += lineHeight * 1.2;
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                
+                if (results.ratios.compression > 0) {
+                    const compStatus = results.ratios.compression <= 1.0 ? '✓ O.K.' : '✗ N.G.';
+                    doc.text(`Compression DCR: ${results.ratios.compression.toFixed(3)} ${compStatus}`, 25, yPos);
+                    yPos += lineHeight;
+                }
+                if (results.ratios.tension > 0) {
+                    const tensStatus = results.ratios.tension <= 1.0 ? '✓ O.K.' : '✗ N.G.';
+                    doc.text(`Tension DCR: ${results.ratios.tension.toFixed(3)} ${tensStatus}`, 25, yPos);
+                    yPos += lineHeight;
+                }
+                const flexXStatus = results.ratios.flexure_x <= 1.0 ? '✓ O.K.' : '✗ N.G.';
+                doc.text(`Flexure (Major) DCR: ${results.ratios.flexure_x.toFixed(3)} ${flexXStatus}`, 25, yPos);
+                yPos += lineHeight;
+                const flexYStatus = results.ratios.flexure_y <= 1.0 ? '✓ O.K.' : '✗ N.G.';
+                doc.text(`Flexure (Minor) DCR: ${results.ratios.flexure_y.toFixed(3)} ${flexYStatus}`, 25, yPos);
+                yPos += lineHeight;
+                const shearStatus = results.ratios.shear <= 1.0 ? '✓ O.K.' : '✗ N.G.';
+                doc.text(`Shear DCR: ${results.ratios.shear.toFixed(3)} ${shearStatus}`, 25, yPos);
+                yPos += lineHeight;
+                const intStatus = results.ratios.interaction <= 1.0 ? '✓ O.K.' : '✗ N.G.';
+                doc.text(`Interaction DCR: ${results.ratios.interaction.toFixed(3)} ${intStatus}`, 25, yPos);
+                yPos += lineHeight * 2;
+
+                // Deflection
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.text('DEFLECTION CHECK:', 20, yPos);
+                yPos += lineHeight * 1.2;
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Live Load Deflection: ${results.deflection.delta_LL.toFixed(3)} in`, 25, yPos);
+                yPos += lineHeight;
+                doc.text(`Limit (L/360): ${results.deflection.delta_limit.toFixed(3)} in`, 25, yPos);
+                yPos += lineHeight;
+                const deflStatus = results.deflection.pass ? '✓ O.K.' : '✗ N.G. - Exceeds L/360';
+                doc.text(`Actual Ratio: L/${results.deflection.ratio.toFixed(0)} ${deflStatus}`, 25, yPos);
+                yPos += lineHeight * 2;
+
+                // Final Result
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                
+                if (results.strength_pass && results.deflection_pass) {
+                    doc.setTextColor(0, 150, 0);
+                    doc.text('STRENGTH: O.K.', 20, yPos);
+                    yPos += lineHeight;
+                    doc.text('DEFLECTION: O.K.', 20, yPos);
+                    yPos += lineHeight;
+                    doc.text('DESIGN: SATISFACTORY', 20, yPos);
+                } else {
+                    doc.setTextColor(200, 0, 0);
+                    if (!results.strength_pass) {
+                        doc.text('STRENGTH: N.G. - REQUIRES REVISION', 20, yPos);
+                        yPos += lineHeight;
+                    } else {
+                        doc.setTextColor(0, 150, 0);
+                        doc.text('STRENGTH: O.K.', 20, yPos);
+                        yPos += lineHeight;
+                        doc.setTextColor(200, 0, 0);
+                    }
+                    if (!results.deflection_pass) {
+                        doc.text('DEFLECTION: N.G. - EXCEEDS L/360 LIMIT', 20, yPos);
+                        yPos += lineHeight;
+                    } else {
+                        doc.setTextColor(0, 150, 0);
+                        doc.text('DEFLECTION: O.K.', 20, yPos);
+                        yPos += lineHeight;
+                        doc.setTextColor(200, 0, 0);
+                    }
+                    doc.text('DESIGN: NOT SATISFACTORY', 20, yPos);
+                }
+                doc.setTextColor(0, 0, 0);
+
+                // Save PDF
+                const fileName = `Steel_Design_${selectedSection || 'BuiltUp'}_${new Date().toISOString().split('T')[0]}.pdf`;
+                doc.save(fileName);
+            };
+
+            return (
+                <div className="app-container">
+                    <header>
+                        <h1>AISC 360-22 Steel Design</h1>
+                        <p className="subtitle">Comprehensive Member Design Tool</p>
+                    </header>
+
+                    <div className="design-grid">
+                        {/* Input Section - Left Column */}
+                        <div className="card">
+                            <h2 className="card-title">Member Configuration</h2>
+                            
+                            <div className="form-group">
+                                <label>Member Type</label>
+                                <select value={memberType} onChange={(e) => setMemberType(e.target.value)}>
+                                    <option value="beam">Beam (Flexure)</option>
+                                    <option value="column">Column (Compression)</option>
+                                    <option value="tension">Tension Member</option>
+                                    <option value="beam-column">Beam-Column (Combined)</option>
+                                </select>
+                            </div>
+
+                            <div className="checkbox-group">
+                                <input 
+                                    type="checkbox" 
+                                    id="builtup" 
+                                    checked={isBuiltUp}
+                                    onChange={(e) => {
+                                        setIsBuiltUp(e.target.checked);
+                                        if (e.target.checked) setUseCustomSection(false);
+                                    }}
+                                />
+                                <label htmlFor="builtup">Built-up Section</label>
+                            </div>
+
+                            <div className="checkbox-group">
+                                <input 
+                                    type="checkbox" 
+                                    id="custom" 
+                                    checked={useCustomSection}
+                                    onChange={(e) => {
+                                        setUseCustomSection(e.target.checked);
+                                        if (e.target.checked) setIsBuiltUp(false);
+                                    }}
+                                />
+                                <label htmlFor="custom">Custom Section Properties</label>
+                            </div>
+
+                            {useCustomSection ? (
+                                <div style={{background: 'var(--input-bg)', padding: '1rem', borderRadius: '8px', marginTop: '1rem'}}>
+                                    <div className="form-group">
+                                        <label>Section Dimensions (in)</label>
+                                        <div className="input-group">
+                                            <div>
+                                                <label>Depth (d)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    value={customProps.d}
+                                                    onChange={(e) => setCustomProps({...customProps, d: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Flange Width (bf)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    value={customProps.bf}
+                                                    onChange={(e) => setCustomProps({...customProps, bf: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Thicknesses (in)</label>
+                                        <div className="input-group">
+                                            <div>
+                                                <label>Flange (tf)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.001"
+                                                    value={customProps.tf}
+                                                    onChange={(e) => setCustomProps({...customProps, tf: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Web (tw)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.001"
+                                                    value={customProps.tw}
+                                                    onChange={(e) => setCustomProps({...customProps, tw: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Section Properties</label>
+                                        <div className="input-group">
+                                            <div>
+                                                <label>Area (A, in²)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    value={customProps.A}
+                                                    onChange={(e) => setCustomProps({...customProps, A: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Ix (in⁴)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.1"
+                                                    value={customProps.Ix}
+                                                    onChange={(e) => setCustomProps({...customProps, Ix: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <div className="input-group">
+                                            <div>
+                                                <label>Iy (in⁴)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.1"
+                                                    value={customProps.Iy}
+                                                    onChange={(e) => setCustomProps({...customProps, Iy: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Zx (in³)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.1"
+                                                    value={customProps.Zx}
+                                                    onChange={(e) => setCustomProps({...customProps, Zx: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <div className="input-group">
+                                            <div>
+                                                <label>Zy (in³)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.1"
+                                                    value={customProps.Zy}
+                                                    onChange={(e) => setCustomProps({...customProps, Zy: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Sx (in³)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.1"
+                                                    value={customProps.Sx}
+                                                    onChange={(e) => setCustomProps({...customProps, Sx: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Radii of Gyration (in)</label>
+                                        <div className="input-group">
+                                            <div>
+                                                <label>rx</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    value={customProps.rx}
+                                                    onChange={(e) => setCustomProps({...customProps, rx: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>ry</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    value={customProps.ry}
+                                                    onChange={(e) => setCustomProps({...customProps, ry: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Torsional Properties</label>
+                                        <div className="input-group">
+                                            <div>
+                                                <label>J (in⁴)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.1"
+                                                    value={customProps.J}
+                                                    onChange={(e) => setCustomProps({...customProps, J: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Cw (in⁶)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="1"
+                                                    value={customProps.Cw}
+                                                    onChange={(e) => setCustomProps({...customProps, Cw: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>rts (in)</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.01"
+                                            value={customProps.rts}
+                                            onChange={(e) => setCustomProps({...customProps, rts: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                </div>
+                            ) : !isBuiltUp ? (
+                                <>
+                                    <div className="form-group">
+                                        <label>Section Type</label>
+                                        <select value={sectionType} onChange={(e) => {
+                                            setSectionType(e.target.value);
+                                            setSelectedSection('');
+                                        }}>
+                                            {Object.keys(SECTION_DATABASE).map(type => (
+                                                <option key={type} value={type}>{type}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Section Size</label>
+                                        <select value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)}>
+                                            <option value="">Select section...</option>
+                                            {Object.keys(availableSections).map(section => (
+                                                <option key={section} value={section}>{section}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="form-group">
+                                        <label>Built-up Type</label>
+                                        <select value={builtUpType} onChange={(e) => {
+                                            setBuiltUpType(e.target.value);
+                                            setBuiltUpConfig('');
+                                        }}>
+                                            <option value="">Select type...</option>
+                                            {Object.keys(BUILTUP_TYPES).map(type => (
+                                                <option key={type} value={type}>{type}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {builtUpType && (
+                                        <div className="form-group">
+                                            <label>Configuration</label>
+                                            <select value={builtUpConfig} onChange={(e) => setBuiltUpConfig(e.target.value)}>
+                                                <option value="">Select configuration...</option>
+                                                {BUILTUP_TYPES[builtUpType].map(config => (
+                                                    <option key={config} value={config}>{config}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            <div className="form-group">
+                                <label>Material Properties</label>
+                                <div className="input-group">
+                                    <div>
+                                        <label>Fy (ksi)</label>
+                                        <input 
+                                            type="number" 
+                                            value={material.Fy}
+                                            onChange={(e) => setMaterial({...material, Fy: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Fu (ksi)</label>
+                                        <input 
+                                            type="number" 
+                                            value={material.Fu}
+                                            onChange={(e) => setMaterial({...material, Fu: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Loading Section - Right Column */}
+                        <div className="card">
+                            <h2 className="card-title">Applied Loads & Geometry</h2>
+                            
+                            <div className="form-group">
+                                <label>Axial Force (kips)</label>
+                                <input 
+                                    type="number" 
+                                    value={loads.Pu}
+                                    onChange={(e) => setLoads({...loads, Pu: Number(e.target.value)})}
+                                    placeholder="+ Compression, - Tension"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>Moments (kip-ft)</label>
+                                <div className="input-group">
+                                    <div>
+                                        <label>Mux (Major)</label>
+                                        <input 
+                                            type="number" 
+                                            value={loads.Mux}
+                                            onChange={(e) => setLoads({...loads, Mux: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Muy (Minor)</label>
+                                        <input 
+                                            type="number" 
+                                            value={loads.Muy}
+                                            onChange={(e) => setLoads({...loads, Muy: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Shear Force (kips)</label>
+                                <input 
+                                    type="number" 
+                                    value={loads.Vux}
+                                    onChange={(e) => setLoads({...loads, Vux: Number(e.target.value)})}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>Distributed Loads (k/ft)</label>
+                                <div className="input-group">
+                                    <div>
+                                        <label>Dead Load</label>
+                                        <input 
+                                            type="number" 
+                                            value={loads.wDL}
+                                            onChange={(e) => setLoads({...loads, wDL: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Live Load</label>
+                                        <input 
+                                            type="number" 
+                                            value={loads.wLL}
+                                            onChange={(e) => setLoads({...loads, wLL: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Member Length (ft)</label>
+                                <input 
+                                    type="number" 
+                                    value={geometry.L}
+                                    onChange={(e) => setGeometry({...geometry, L: Number(e.target.value)})}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>Unbraced Lengths (ft)</label>
+                                <div className="input-group">
+                                    <div>
+                                        <label>Lbx (Major)</label>
+                                        <input 
+                                            type="number" 
+                                            value={geometry.Lbx}
+                                            onChange={(e) => setGeometry({...geometry, Lbx: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Lby (Minor)</label>
+                                        <input 
+                                            type="number" 
+                                            value={geometry.Lby}
+                                            onChange={(e) => setGeometry({...geometry, Lby: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Effective Length Factors</label>
+                                <div className="input-group">
+                                    <div>
+                                        <label>Kx</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.1"
+                                            value={geometry.Kx}
+                                            onChange={(e) => setGeometry({...geometry, Kx: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>Ky</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.1"
+                                            value={geometry.Ky}
+                                            onChange={(e) => setGeometry({...geometry, Ky: Number(e.target.value)})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>LTB Modification Factor (Cb)</label>
+                                <input 
+                                    type="number" 
+                                    step="0.1"
+                                    value={geometry.Cb}
+                                    onChange={(e) => setGeometry({...geometry, Cb: Number(e.target.value)})}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="button-group">
+                        <button onClick={performDesign}>
+                            PERFORM DESIGN
+                        </button>
+                        {results && (
+                            <button onClick={generatePDF}>
+                                GENERATE PDF REPORT
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Results Section */}
+                    {results && (
+                        <div className="results-section">
+                            <div className="result-card">
+                                <div className="result-header">
+                                    <h3 className="result-title">Design Results</h3>
+                                    <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
+                                        <span className={`status-badge ${results.strength_pass ? 'status-pass' : 'status-fail'}`}>
+                                            Strength: {results.strength_pass ? 'O.K.' : 'N.G.'}
+                                        </span>
+                                        <span className={`status-badge ${results.deflection_pass ? 'status-pass' : 'status-fail'}`}>
+                                            Deflection: {results.deflection_pass ? 'O.K.' : 'N.G.'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="result-grid">
+                                    <div className="result-item">
+                                        <div className="result-label">Tension Capacity</div>
+                                        <div className="result-value">{results.capacities.phiPn_tension.toFixed(1)} kips</div>
+                                    </div>
+                                    <div className="result-item">
+                                        <div className="result-label">Compression Capacity</div>
+                                        <div className="result-value">{results.capacities.phiPn_compression.toFixed(1)} kips</div>
+                                    </div>
+                                    <div className="result-item">
+                                        <div className="result-label">Flexure (Major) Capacity</div>
+                                        <div className="result-value">{results.capacities.phiMn_x.toFixed(1)} kip-ft</div>
+                                    </div>
+                                    <div className="result-item">
+                                        <div className="result-label">Flexure (Minor) Capacity</div>
+                                        <div className="result-value">{results.capacities.phiMn_y.toFixed(1)} kip-ft</div>
+                                    </div>
+                                    <div className="result-item">
+                                        <div className="result-label">Shear Capacity</div>
+                                        <div className="result-value">{results.capacities.phiVn.toFixed(1)} kips</div>
+                                    </div>
+                                    <div className="result-item">
+                                        <div className="result-label">Live Load Deflection</div>
+                                        <div className="result-value">
+                                            {results.deflection.delta_LL.toFixed(3)} in (L/{results.deflection.ratio.toFixed(0)})
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="unity-check">
+                                    <div className="result-label">Combined Loading DCR (Interaction): {results.ratios.interaction.toFixed(3)}</div>
+                                    <div className="unity-bar">
+                                        <div 
+                                            className={`unity-fill ${results.ratios.interaction <= 1.0 ? 'unity-pass' : 'unity-fail'}`}
+                                            style={{width: `${Math.min(results.ratios.interaction * 100, 100)}%`}}
+                                        >
+                                            {(results.ratios.interaction * 100).toFixed(1)}%
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button 
+                                    onClick={() => setShowDetails(!showDetails)}
+                                    style={{marginTop: '1.5rem', width: '100%'}}
+                                >
+                                    {showDetails ? 'HIDE' : 'SHOW'} DETAILED CALCULATIONS
+                                </button>
+
+                                {showDetails && (
+                                    <div className="calculation-details">
+                                        {results.calculations.steps.map((section, idx) => (
+                                            <div key={idx} className="calc-section">
+                                                <div className="calc-title">{section.title}</div>
+                                                {section.items.map((item, i) => (
+                                                    <div key={i} className="calc-step">
+                                                        {item}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<SteelDesignApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
